@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Grupos de Educación Física</title>
+<style>
+:root{--bg:#f3f5ef;--card:#fff;--ink:#1b2a22;--mute:#5d6b63;--line:#d6dccf;--acc:#0f7b4f;--acc2:#ffb703;--accink:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121a15;--card:#1b2620;--ink:#eaf1ec;--mute:#9baba2;--line:#2e3d34;--acc:#3ddc97;--acc2:#ffb703;--accink:#06231a}}
+:root[data-theme="dark"]{--bg:#121a15;--card:#1b2620;--ink:#eaf1ec;--mute:#9baba2;--line:#2e3d34;--acc:#3ddc97;--acc2:#ffb703;--accink:#06231a}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;font-size:18px;line-height:1.4}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+h1{font-size:2.2rem;margin:.2em 0 .1em;font-weight:800;letter-spacing:.01em}
+.sub{color:var(--mute);margin:0 0 14px}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px}
+.tab{flex:none;border:2px solid var(--line);background:var(--card);color:var(--ink);font:inherit;font-weight:700;padding:8px 16px;border-radius:999px;cursor:pointer}
+.tab[aria-selected=true]{background:var(--acc);border-color:var(--acc);color:var(--accink)}
+.tab.add{border-style:dashed;color:var(--mute)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:12px}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+label{display:block;font-weight:600;color:var(--mute);font-size:.9rem;margin-bottom:4px}
+textarea,input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{min-height:130px;resize:vertical}
+input[type=number]{width:90px}
+button.b{font:inherit;font-weight:800;border:0;border-radius:10px;padding:10px 18px;cursor:pointer;background:var(--acc);color:var(--accink)}
+button.b.alt{background:transparent;color:var(--ink);border:2px solid var(--line)}
+button.b.danger{background:transparent;color:#c0392b;border:2px solid var(--line)}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid var(--acc2);outline-offset:2px}
+.mode{display:flex;gap:6px}
+.mode label{display:flex;gap:6px;align-items:center;margin:0;color:var(--ink);font-size:1rem}
+.mode input{width:auto}
+.groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:14px}
+.g{border:1px solid var(--line);border-left:8px solid var(--c);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.g h3{margin:0 0 6px;font-size:1.3rem;color:var(--ink)}
+.g ul{margin:0;padding-left:18px}
+.empty{color:var(--mute);margin:10px 0 0}
+.count{color:var(--mute);font-size:.95rem}
+.toast{color:var(--acc);font-weight:700;min-height:1.4em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Grupos de Educación Física</h1>
+  <p class="sub">Crea grupos al azar para cada clase.</p>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div id="main"></div>
+</div>
+<script>
+var KEY="ef_clases_v1",S={classes:[],cur:0},result={};
+var COLORS=["#0f7b4f","#e76f51","#2a7fff","#c77dff","#e9a800","#00a6a6","#d6336c","#6c8e00"];
+function load(){try{var r=localStorage.getItem(KEY);if(r){var d=JSON.parse(r);if(d&&d.classes)S=d}}catch(e){}
+if(!S.classes.length)S={classes:[{name:"Clase 1",students:[]}],cur:0}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t}return a}
+function cls(){return S.classes[S.cur]}
+function render(){
+  var t=document.getElementById("tabs");
+  t.innerHTML=S.classes.map(function(c,i){return '<button class="tab" role="tab" aria-selected="'+(i===S.cur)+'" data-i="'+i+'">'+esc(c.name)+'</button>'}).join("")+'<button class="tab add" id="addc">+ Añadir clase</button>';
+  var c=cls(),n=c.students.length;
+  var h='<div class="panel"><div class="row"><div style="flex:1;min-width:200px"><label for="nm">Nombre o número de clase</label><input id="nm" value="'+esc(c.name)+'"></div><button class="b danger" id="delc">Eliminar clase</button></div>'+
+  '<div style="margin-top:12px"><label for="st">Alumnos (uno por línea)</label><textarea id="st" placeholder="Ana García&#10;Luis Pérez&#10;...">'+esc(c.students.join("\n"))+'</textarea><div class="count">'+n+' alumno'+(n===1?"":"s")+'</div></div></div>'+
+  '<div class="panel"><div class="row"><div class="mode"><label><input type="radio" name="m" value="g" checked> Nº de grupos</label><label><input type="radio" name="m" value="s"> Alumnos por grupo</label></div>'+
+  '<div><label for="k">Cantidad</label><input type="number" id="k" min="1" value="'+(window._k||4)+'"></div>'+
+  '<button class="b" id="go">Crear grupos</button><button class="b alt" id="cp">Copiar</button></div>'+
+  '<div class="toast" id="toast" role="status"></div><div id="res"></div></div>';
+  document.getElementById("main").innerHTML=h;
+  showResult();
+}
+function showResult(){
+  var r=document.getElementById("res"),g=result[S.cur];
+  if(!g){r.innerHTML='<p class="empty">Añade alumnos y pulsa «Crear grupos».</p>';return}
+  r.innerHTML='<div class="groups">'+g.map(function(m,i){return '<div class="g" style="--c:'+COLORS[i%COLORS.length]+'"><h3>Grupo '+(i+1)+' <span class="count">('+m.length+')</span></h3><ul>'+m.map(function(s){return '<li>'+esc(s)+'</li>'}).join("")+'</ul></div>'}).join("")+'</div>';
+}
+function toast(m){var e=document.getElementById("toast");if(e){e.textContent=m;setTimeout(function(){e.textContent=""},2500)}}
+function makeGroups(){
+  var c=cls(),list=shuffle(c.students),k=parseInt(document.getElementById("k").value,10)||1;window._k=k;
+  if(!list.length){toast("Añade alumnos primero.");return}
+  var mode=document.querySelector('input[name=m]:checked').value;
+  var ng=mode==="g"?k:Math.ceil(list.length/k);
+  ng=Math.max(1,Math.min(ng,list.length));
+  var gs=[];for(var i=0;i<ng;i++)gs.push([]);
+  list.forEach(function(s,i){gs[i%ng].push(s)});
+  result[S.cur]=gs;showResult();
+}
+document.addEventListener("click",function(e){
+  var el=e.target;
+  if(el.closest&&el.closest(".tab[data-i]")){S.cur=+el.closest(".tab").dataset.i;save();render();return}
+  if(el.id==="addc"){S.classes.push({name:"Clase "+(S.classes.length+1),students:[]});S.cur=S.classes.length-1;save();render();return}
+  if(el.id==="delc"){if(S.classes.length<2){toast("Debe quedar al menos una clase.");return}
+    if(confirm("¿Eliminar «"+cls().name+"»?")){S.classes.splice(S.cur,1);delete result[S.cur];S.cur=0;save();render()}return}
+  if(el.id==="go")makeGroups();
+  if(el.id==="cp"){var g=result[S.cur];if(!g){toast("Aún no hay grupos.");return}
+    var txt=cls().name+"\n"+g.map(function(m,i){return "Grupo "+(i+1)+": "+m.join(", ")}).join("\n");
+    try{navigator.clipboard.writeText(txt).then(function(){toast("Copiado.")},function(){toast("No se pudo copiar.")})}catch(x){toast("No se pudo copiar.")}}
+});
+document.addEventListener("input",function(e){
+  if(e.target.id==="st"){var c=cls();c.students=e.target.value.split("\n").map(function(s){return s.trim()}).filter(Boolean);save();
+    var ct=document.querySelector(".count");if(ct){var n=c.students.length;ct.textContent=n+" alumno"+(n===1?"":"s")}}
+  if(e.target.id==="nm"){cls().name=e.target.value||"Clase";save();
+    var tb=document.querySelector('.tab[data-i="'+S.cur+'"]');if(tb)tb.textContent=cls().name}
+});
+load();render();
+</script>
+</body>
+</html>
