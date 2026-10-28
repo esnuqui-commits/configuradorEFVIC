@@ -39,15 +39,38 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .empty{color:var(--mute);margin:10px 0 0}
 .count{color:var(--mute);font-size:.95rem}
 .toast{color:var(--acc);font-weight:700;min-height:1.4em}
+details.hint{margin-top:8px;color:var(--mute);font-size:.95rem}
+details.hint summary{cursor:pointer}
+details.hint p{margin:6px 0 0}
+.hd{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:var(--hd,var(--acc));color:var(--hdink,var(--accink))}
+.hd img{height:72px;width:auto;max-width:130px;object-fit:contain;background:#fff;padding:6px;border-radius:10px;flex:none}
+.ht{flex:1;min-width:0}
+.hs{font-size:1.9rem;font-weight:800;line-height:1.1}
+.hp{font-size:1.05rem;opacity:.9}
+.hsub{font-size:.95rem;opacity:.8}
+button.b.hb{background:transparent;color:inherit;border:2px solid currentColor;flex:none}
+#cfg{margin-top:12px}
+input[type=color]{width:60px;height:40px;padding:2px;cursor:pointer}
+input[type=file]{padding:6px}
+.roll{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{font:inherit;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:4px 12px;cursor:pointer}
+.chip b{color:var(--acc);margin-right:2px}
+.chip.abs{opacity:.55;text-decoration:line-through;border-style:dashed}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Grupos de Educación Física</h1>
-  <p class="sub">Crea grupos al azar para cada clase.</p>
+  <header class="hd"><img id="logo" alt="Escudo del colegio" hidden><div class="ht"><div class="hs" id="hs"></div><div class="hp" id="hp"></div><div class="hsub" id="hsub"></div></div><button class="b hb" id="cfgb">Personalizar</button></header>
+  <div class="panel" id="cfg" hidden>
+    <div class="row"><div style="flex:1;min-width:200px"><label for="cs">Nombre del colegio</label><input id="cs"></div><div style="flex:1;min-width:200px"><label for="ct">Profesor/a</label><input id="ct"></div><div style="flex:1;min-width:200px"><label for="cj">Asignatura (elige o escribe)</label><input id="cj" list="subjects"><datalist id="subjects"><option value="Educación Física"><option value="Matemáticas"><option value="Lengua"><option value="Inglés"><option value="Música"><option value="Plástica"><option value="Ciencias"><option value="Tutoría"></datalist></div></div>
+    <div class="row" style="margin-top:12px"><div><label for="clogo">Escudo del colegio (imagen)</label><input type="file" id="clogo" accept="image/*"></div><button class="b alt" id="rlogo">Quitar escudo</button></div>
+    <div class="row" style="margin-top:12px"><div><label for="ch">Color del encabezado</label><input type="color" id="ch"></div><div><label for="cbg">Color de fondo</label><input type="color" id="cbg"></div><div><label for="ca">Color de botones</label><input type="color" id="ca"></div><button class="b alt" id="rcol">Restablecer colores</button></div>
+  </div>
   <div class="tabs" id="tabs" role="tablist"></div>
   <div id="main"></div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 var KEY="ef_clases_v1",S={classes:[],cur:0},result={};
 var COLORS=["#0f7b4f","#e76f51","#2a7fff","#c77dff","#e9a800","#00a6a6","#d6336c","#6c8e00"];
@@ -61,13 +84,14 @@ function render(){
   var t=document.getElementById("tabs");
   t.innerHTML=S.classes.map(function(c,i){return '<button class="tab" role="tab" aria-selected="'+(i===S.cur)+'" data-i="'+i+'">'+esc(c.name)+'</button>'}).join("")+'<button class="tab add" id="addc">+ Añadir clase</button>';
   var c=cls(),n=c.students.length;
-  var h='<div class="panel"><div class="row"><div style="flex:1;min-width:200px"><label for="nm">Nombre o número de clase</label><input id="nm" value="'+esc(c.name)+'"></div><button class="b danger" id="delc">Eliminar clase</button></div>'+
-  '<div style="margin-top:12px"><label for="st">Alumnos (uno por línea)</label><textarea id="st" placeholder="Ana García&#10;Luis Pérez&#10;...">'+esc(c.students.join("\n"))+'</textarea><div class="count">'+n+' alumno'+(n===1?"":"s")+'</div></div></div>'+
-  '<div class="panel"><div class="row"><div class="mode"><label><input type="radio" name="m" value="g" checked> Nº de grupos</label><label><input type="radio" name="m" value="s"> Alumnos por grupo</label></div>'+
+  var h='<div class="panel"><div class="row"><button class="b" id="imp">Importar desde archivo</button><input type="file" id="file" hidden accept=".xlsx,.xls,.ods,.numbers,.csv,.tsv,.txt,.pdf"><span class="count" id="impmsg">Excel, Numbers, CSV, TXT o PDF</span></div><details class="hint"><summary>¿Cómo debe ser el archivo?</summary><p>Lo ideal es una tabla con columnas «Clase» y «Alumno» (o «Nombre» y «Apellidos»): se crean todas las clases de golpe. En Excel o Numbers, si no hay columna de clase, cada hoja será una clase. Si es solo una lista de nombres, se crea una clase con el nombre del archivo. En PDF, el documento debe tener texto (no ser un escaneo) y un alumno por línea. Los alumnos repetidos no se duplican.</p></details></div><div class="panel"><div class="row"><div style="flex:1;min-width:200px"><label for="nm">Nombre o número de clase</label><input id="nm" value="'+esc(c.name)+'"></div><button class="b danger" id="delc">Eliminar clase</button></div>'+
+  '<div style="margin-top:12px"><label for="st">Alumnos (uno por línea)</label><textarea id="st" placeholder="Ana García&#10;Luis Pérez&#10;...">'+esc(c.students.join("\n"))+'</textarea><div class="count" id="cnt">'+n+' alumno'+(n===1?"":"s")+'</div><div class="count" style="margin-top:8px">Lista numerada. Pulsa un alumno para marcarlo como ausente.</div><div class="roll" id="roll"></div></div></div>'+
+  '<div class="panel"><div class="row" style="margin-bottom:12px"><div style="flex:1;min-width:220px"><label for="ab">Números de los alumnos ausentes (ej. 3, 7, 10-12)</label><input id="ab" inputmode="numeric" placeholder="Ninguno" value="'+esc(ABS[S.cur]||"")+'"><div class="count" id="abinfo"></div></div></div><div class="row"><div class="mode"><label><input type="radio" name="m" value="g" checked> Nº de grupos</label><label><input type="radio" name="m" value="s"> Alumnos por grupo</label></div>'+
   '<div><label for="k">Cantidad</label><input type="number" id="k" min="1" value="'+(window._k||4)+'"></div>'+
   '<button class="b" id="go">Crear grupos</button><button class="b alt" id="cp">Copiar</button></div>'+
   '<div class="toast" id="toast" role="status"></div><div id="res"></div></div>';
   document.getElementById("main").innerHTML=h;
+  renderRoll();
   showResult();
 }
 function showResult(){
@@ -77,13 +101,17 @@ function showResult(){
 }
 function toast(m){var e=document.getElementById("toast");if(e){e.textContent=m;setTimeout(function(){e.textContent=""},2500)}}
 function makeGroups(){
-  var c=cls(),list=shuffle(c.students),k=parseInt(document.getElementById("k").value,10)||1;window._k=k;
-  if(!list.length){toast("Añade alumnos primero.");return}
+  var c=cls(),k=parseInt(document.getElementById("k").value,10)||1;window._k=k;
+  var abs=parseAbs(ABS[S.cur],c.students.length).set;
+  var list=shuffle(c.students.map(function(s,i){return {n:i+1,s:s}}).filter(function(o){return !abs[o.n]}));
+  if(!c.students.length){toast("Añade alumnos primero.");return}
+  if(!list.length){toast("Todos los alumnos están marcados como ausentes.");return}
   var mode=document.querySelector('input[name=m]:checked').value;
   var ng=mode==="g"?k:Math.ceil(list.length/k);
   ng=Math.max(1,Math.min(ng,list.length));
   var gs=[];for(var i=0;i<ng;i++)gs.push([]);
-  list.forEach(function(s,i){gs[i%ng].push(s)});
+  list.forEach(function(o,i){gs[i%ng].push(o)});
+  gs=gs.map(function(g){return g.sort(function(a,b){return a.n-b.n}).map(function(o){return o.n+". "+o.s})});
   result[S.cur]=gs;showResult();
 }
 document.addEventListener("click",function(e){
@@ -91,7 +119,7 @@ document.addEventListener("click",function(e){
   if(el.closest&&el.closest(".tab[data-i]")){S.cur=+el.closest(".tab").dataset.i;save();render();return}
   if(el.id==="addc"){S.classes.push({name:"Clase "+(S.classes.length+1),students:[]});S.cur=S.classes.length-1;save();render();return}
   if(el.id==="delc"){if(S.classes.length<2){toast("Debe quedar al menos una clase.");return}
-    if(confirm("¿Eliminar «"+cls().name+"»?")){S.classes.splice(S.cur,1);delete result[S.cur];S.cur=0;save();render()}return}
+    if(confirm("¿Eliminar «"+cls().name+"»?")){S.classes.splice(S.cur,1);result={};ABS={};S.cur=0;save();render()}return}
   if(el.id==="go")makeGroups();
   if(el.id==="cp"){var g=result[S.cur];if(!g){toast("Aún no hay grupos.");return}
     var txt=cls().name+"\n"+g.map(function(m,i){return "Grupo "+(i+1)+": "+m.join(", ")}).join("\n");
@@ -99,10 +127,142 @@ document.addEventListener("click",function(e){
 });
 document.addEventListener("input",function(e){
   if(e.target.id==="st"){var c=cls();c.students=e.target.value.split("\n").map(function(s){return s.trim()}).filter(Boolean);save();
-    var ct=document.querySelector(".count");if(ct){var n=c.students.length;ct.textContent=n+" alumno"+(n===1?"":"s")}}
+    var ct=document.getElementById("cnt");if(ct){var n=c.students.length;ct.textContent=n+" alumno"+(n===1?"":"s")}renderRoll()}
   if(e.target.id==="nm"){cls().name=e.target.value||"Clase";save();
     var tb=document.querySelector('.tab[data-i="'+S.cur+'"]');if(tb)tb.textContent=cls().name}
 });
+function normH(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim()}
+function cell(r,i){return i>=0&&r[i]!=null?String(r[i]).trim():""}
+function rowsToClasses(rows,def){
+  rows=rows.filter(function(r){return r&&r.some(function(c){return String(c==null?"":c).trim()!==""})});
+  var out={};if(!rows.length)return out;
+  var ci=-1,ni=-1,ai=-1,start=1;
+  rows[0].map(normH).forEach(function(h,i){
+    if(ci<0&&/^(clase|curso|grupo|aula)/.test(h))ci=i;
+    else if(ni<0&&/^(alumno|alumna|nombre|estudiante)/.test(h))ni=i;
+    else if(ai<0&&/^apellido/.test(h))ai=i});
+  if(ni<0&&ai<0){
+    if(ci>=0){ni=ci===0?1:0}
+    else{start=0;var w=Math.max.apply(null,rows.map(function(r){return r.length}));
+      if(w>=2){var d={};rows.forEach(function(r){d[cell(r,0)]=1});
+        if(Object.keys(d).length<=rows.length/2){ci=0;ni=1}else ni=0}else ni=0}}
+  var last="";
+  for(var i=start;i<rows.length;i++){var r=rows[i],a=cell(r,ai),n=cell(r,ni),s=a&&n?a+", "+n:(a||n);if(!s)continue;
+    var c=cell(r,ci)||last||def;last=c;(out[c]=out[c]||[]).push(s)}
+  return out}
+function parseCSV(t){t=t.replace(/^\uFEFF/,"");var l=t.split(/\r?\n/),d=";",best=0,f=l[0]||"";
+  [";",",","\t"].forEach(function(x){var n=f.split(x).length;if(n>best){best=n;d=x}});
+  return l.map(function(line){var o=[],cur="",q=false;
+    for(var i=0;i<line.length;i++){var ch=line[i];
+      if(ch==='"'){if(q&&line[i+1]==='"'){cur+='"';i++}else q=!q}
+      else if(ch===d&&!q){o.push(cur);cur=""}else cur+=ch}
+    o.push(cur);return o})}
+function msg(t){var e=document.getElementById("impmsg");if(e)e.textContent=t}
+function addClasses(map){var nc=0,ns=0;
+  Object.keys(map).forEach(function(name){
+    var c=S.classes.filter(function(x){return x.name===name})[0];
+    if(!c){c={name:name,students:[]};
+      if(S.classes.length===1&&!S.classes[0].students.length&&S.classes[0].name==="Clase 1")S.classes[0]=c;else S.classes.push(c);nc++}
+    map[name].forEach(function(s){if(c.students.indexOf(s)<0){c.students.push(s);ns++}})});
+  return [nc,ns]}
+function done(map){var k=Object.keys(map);
+  if(!k.length){msg("No se encontraron alumnos en el archivo.");return}
+  var r=addClasses(map),ix=S.classes.map(function(c){return c.name}).indexOf(k[0]);
+  if(ix>=0)S.cur=ix;save();render();
+  msg("Importado: "+r[1]+" alumno"+(r[1]===1?"":"s")+" en "+k.length+" clase"+(k.length===1?"":"s")+".")}
+function lineRows(lines){return lines.map(function(l){return [l.replace(/^\s*\d+\s*[.)\-–]?\s+/,"").trim()]})}
+function readFile(f){
+  var ext=(f.name.split(".").pop()||"").toLowerCase(),base=f.name.replace(/\.[^.]+$/,""),fr=new FileReader();
+  if(["xlsx","xls","xlsm","ods","numbers"].indexOf(ext)>=0){
+    if(typeof XLSX==="undefined"){msg("No se pudo cargar el lector de Excel. Comprueba la conexión.");return}
+    fr.onload=function(){try{var wb=XLSX.read(fr.result,{type:"array"}),map={};
+      wb.SheetNames.forEach(function(n){
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:""});
+        var m=rowsToClasses(rows,wb.SheetNames.length>1?n:base);
+        Object.keys(m).forEach(function(k){(map[k]=map[k]||[]).push.apply(map[k],m[k])})});
+      done(map)}catch(e){msg("No se pudo leer el archivo.")}};
+    fr.readAsArrayBuffer(f)}
+  else if(ext==="csv"||ext==="tsv"){
+    fr.onload=function(){try{done(rowsToClasses(parseCSV(fr.result),base))}catch(e){msg("No se pudo leer el archivo.")}};
+    fr.readAsText(f)}
+  else if(ext==="txt"){
+    fr.onload=function(){try{done(rowsToClasses(lineRows(fr.result.split(/\r?\n/)),base))}catch(e){msg("No se pudo leer el archivo.")}};
+    fr.readAsText(f)}
+  else if(ext==="pdf"){
+    if(typeof pdfjsLib==="undefined"){msg("No se pudo cargar el lector de PDF. Comprueba la conexión.");return}
+    pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    fr.onload=function(){pdfjsLib.getDocument({data:new Uint8Array(fr.result)}).promise.then(function(doc){
+      var lines=[],p=Promise.resolve();
+      for(let n=1;n<=doc.numPages;n++)p=p.then(function(){return doc.getPage(n)}).then(function(pg){return pg.getTextContent()}).then(function(tc){
+        var ys={};tc.items.forEach(function(it){var y=Math.round(it.transform[5]);(ys[y]=ys[y]||[]).push(it)});
+        Object.keys(ys).map(Number).sort(function(a,b){return b-a}).forEach(function(y){
+          var t=ys[y].sort(function(a,b){return a.transform[4]-b.transform[4]}).map(function(i){return i.str}).join(" ").replace(/\s+/g," ").trim();
+          if(t)lines.push(t)})});
+      return p.then(function(){done(rowsToClasses(lineRows(lines),base))})
+    }).catch(function(){msg("No se pudo leer el PDF. Prueba con Excel o CSV.")})};
+    fr.readAsArrayBuffer(f)}
+  else msg("Formato no admitido. Usa Excel, Numbers, CSV, TXT o PDF.")}
+document.addEventListener("click",function(e){if(e.target.id==="imp")document.getElementById("file").click()});
+document.addEventListener("change",function(e){if(e.target.id==="file"&&e.target.files[0]){msg("Leyendo…");readFile(e.target.files[0])}});
+var CK="ef_ajustes_v1",C={school:"",teacher:"",subject:"Educación Física",logo:"",hd:"",bg:"",acc:""};
+function loadC(){try{var r=localStorage.getItem(CK);if(r){var d=JSON.parse(r);for(var k in C)if(typeof d[k]==="string")C[k]=d[k]}}catch(e){}}
+function saveC(){try{localStorage.setItem(CK,JSON.stringify(C))}catch(e){}}
+function lum(h){var n=parseInt(h.slice(1),16);return (0.299*(n>>16&255)+0.587*(n>>8&255)+0.114*(n&255))/255}
+function inkFor(h){return lum(h)>0.6?"#14201a":"#ffffff"}
+function applyC(){var s=document.documentElement.style;
+  function set(k,v){if(v)s.setProperty(k,v);else s.removeProperty(k)}
+  set("--acc",C.acc);set("--accink",C.acc?inkFor(C.acc):"");
+  set("--hd",C.hd);set("--hdink",C.hd?inkFor(C.hd):"");
+  set("--bg",C.bg);
+  var L=C.bg?lum(C.bg)>0.5:null;
+  set("--ink",C.bg?(L?"#1b2a22":"#eaf1ec"):"");set("--card",C.bg?(L?"#ffffff":"#1b2620"):"");
+  set("--line",C.bg?(L?"#d6dccf":"#2e3d34"):"");set("--mute",C.bg?(L?"#5d6b63":"#9baba2"):"")}
+function renderHd(){
+  document.getElementById("hs").textContent=C.school||"Nombre del colegio";
+  document.getElementById("hp").textContent=C.teacher?"Profesor/a: "+C.teacher:"Nombre del profesor/a";
+  document.getElementById("hsub").textContent=C.subject||"Asignatura";
+  var l=document.getElementById("logo");if(C.logo){l.src=C.logo;l.hidden=false}else{l.hidden=true;l.removeAttribute("src")}}
+function fillC(){document.getElementById("cs").value=C.school;document.getElementById("ct").value=C.teacher;document.getElementById("cj").value=C.subject;
+  document.getElementById("ch").value=C.hd||"#0f7b4f";document.getElementById("cbg").value=C.bg||"#f3f5ef";document.getElementById("ca").value=C.acc||"#0f7b4f"}
+document.addEventListener("click",function(e){var i=e.target.id;
+  if(i==="cfgb"){var p=document.getElementById("cfg");p.hidden=!p.hidden;e.target.textContent=p.hidden?"Personalizar":"Cerrar"}
+  if(i==="rlogo"){C.logo="";saveC();renderHd()}
+  if(i==="rcol"){C.hd=C.bg=C.acc="";saveC();applyC();fillC()}});
+document.addEventListener("input",function(e){var m={cs:"school",ct:"teacher",cj:"subject",ch:"hd",cbg:"bg",ca:"acc"},k=m[e.target.id];
+  if(k){C[k]=e.target.value;saveC();applyC();renderHd()}});
+document.addEventListener("change",function(e){
+  if(e.target.id==="clogo"&&e.target.files[0]){var fr=new FileReader();
+    fr.onload=function(){var im=new Image();im.onload=function(){
+      var k=Math.min(1,200/Math.max(im.width,im.height)),cv=document.createElement("canvas");
+      cv.width=Math.max(1,Math.round(im.width*k));cv.height=Math.max(1,Math.round(im.height*k));
+      cv.getContext("2d").drawImage(im,0,0,cv.width,cv.height);
+      C.logo=cv.toDataURL("image/png");saveC();renderHd()};im.src=fr.result};
+    fr.readAsDataURL(e.target.files[0])}});
+var ABS={};
+function parseAbs(t,n){var set={},bad=[];
+  String(t||"").replace(/\s*[-–]\s*/g,"-").split(/[,;\s]+/).forEach(function(x){
+    if(!x||/^y$/i.test(x))return;
+    var m=x.match(/^(\d+)-(\d+)$/);
+    if(m){var a=+m[1],b=+m[2],q;if(a>b){q=a;a=b;b=q}
+      for(var i=Math.max(a,1);i<=Math.min(b,n);i++)set[i]=1;
+      if(a<1||b>n)bad.push(x)}
+    else if(/^\d+$/.test(x)){var v=+x;if(v>=1&&v<=n)set[v]=1;else bad.push(x)}
+    else bad.push(x)});
+  return {set:set,bad:bad}}
+function renderRoll(){var c=cls(),r=document.getElementById("roll");if(!r)return;
+  var ab=parseAbs(ABS[S.cur],c.students.length);
+  r.innerHTML=c.students.map(function(s,i){var n=i+1,on=!!ab.set[n];
+    return '<button type="button" class="chip'+(on?' abs':'')+'" data-n="'+n+'" aria-pressed="'+on+'"><b>'+n+'</b> '+esc(s)+'</button>'}).join("");
+  var k=Object.keys(ab.set).length,info=document.getElementById("abinfo");
+  if(info){var t=c.students.length?"Participan "+(c.students.length-k)+" de "+c.students.length+(k?" ("+k+" ausente"+(k>1?"s":"")+")":""):"";
+    if(ab.bad.length)t+=". No válidos: "+ab.bad.join(", ");info.textContent=t}}
+document.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest(".chip");if(!b)return;
+  var n=+b.dataset.n,c=cls(),set=parseAbs(ABS[S.cur],c.students.length).set;
+  if(set[n])delete set[n];else set[n]=1;
+  ABS[S.cur]=Object.keys(set).map(Number).sort(function(a,b){return a-b}).join(", ");
+  var inp=document.getElementById("ab");if(inp)inp.value=ABS[S.cur];renderRoll()});
+document.addEventListener("input",function(e){if(e.target.id==="ab"){ABS[S.cur]=e.target.value;renderRoll()}});
+loadC();applyC();renderHd();fillC();
 load();render();
 </script>
 </body>
